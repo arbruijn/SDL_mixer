@@ -357,6 +357,14 @@ FLAC_music *FLAC_new_RW(SDL_RWops *rw, int freerw)
 			SDL_SetError("FLAC__stream_decoder_new() failed");
 		}
 
+		if (!was_error && music->flac_data.channels && music->flac_data.bits_per_sample) {
+			if (music->flac_data.channels != 2 ||
+				music->flac_data.bits_per_sample != 16) {
+				SDL_SetError("Current FLAC support is only for 16 bit Stereo files.");
+				was_error = 1;
+			}
+		}
+
 		if (was_error) {
 			switch (init_stage) {
 				case 3:
@@ -394,6 +402,16 @@ void FLAC_play(FLAC_music *music)
 int FLAC_playing(FLAC_music *music)
 {
 	return(music->playing);
+}
+
+static int FLAC_state_is_end(FLAC__StreamDecoderState state)
+{
+	return state == FLAC__STREAM_DECODER_END_OF_STREAM ||
+		state == FLAC__STREAM_DECODER_OGG_ERROR ||
+		state == FLAC__STREAM_DECODER_SEEK_ERROR ||
+		state == FLAC__STREAM_DECODER_ABORTED ||
+		state == FLAC__STREAM_DECODER_MEMORY_ALLOCATION_ERROR ||
+		state == FLAC__STREAM_DECODER_UNINITIALIZED;
 }
 
 /* Read some FLAC stream data and convert it for output */
@@ -447,8 +465,8 @@ static void FLAC_getsome(FLAC_music *music)
 				music->flac_data.max_to_read = 0;
 			}
 
-			if (flac.FLAC__stream_decoder_get_state (music->flac_decoder)
-									== FLAC__STREAM_DECODER_END_OF_STREAM) {
+			if (FLAC_state_is_end(flac.FLAC__stream_decoder_get_state (
+														music->flac_decoder))) {
 				music->flac_data.max_to_read = 0;
 			}
 		}
